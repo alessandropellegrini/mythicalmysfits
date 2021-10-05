@@ -1,7 +1,5 @@
 # Lab: Setting up an Application in the Cloud
 
-**October 9, 2020**
-
 ## Foreword
 
 This lab activity is readapted and significantly simplified from a 2-hours official workshop from Amzon AWS: "[Buidling a Modern Web Application](https://aws.amazon.com/getting-started/hands-on/build-modern-app-fargate-lambda-dynamodb-python/)" In the original workshop, many additional features are explored and tried out, such as machine-learning based approaches to track the interaction of customers, local testing of the application, or Continuous Integration / Continuous Deployment toolchains to support smarter and faster code production. If you are interested in exploring these additional features, you can also try out the original workshop.
@@ -50,7 +48,7 @@ To begin, sign in to the [AWS Console](https://console.aws.amazon.com/) using yo
 
 This is the goal of the aforementioned System Architecture Diagrams: when you are *planning* a deployment in the cloud, you should already have a well-formed idea of the services that will be required. In this way, you can pick a region which offers all the services needed, also taking into account for the different costs of the services that typically vary geographically.
 
-For this lab, we will use the `eu-west-1` (Ireland) region. You can select the region from the dropdown in the upper right corner of the AWS Management Console.
+For this lab, we will use the `eu-north-1` (Stockholm) region. You can select the region from the dropdown in the upper right corner of the AWS Management Console.
 
 ### Step 2: Create your Mythical Mysfits IDE
 
@@ -66,7 +64,7 @@ Name your environment `MythicalMysfitsIDE` with any description you like, and cl
 
 <img src="images/cloud9-name-ide.png" style="zoom: 67%;" />
 
-Leave the Environment settings as their defaults and click **Next Step**. Note that by default we are selecting a `t2.micro` EC2 instance, which is eligible for free tier.
+Leave the Environment settings as their defaults and click **Next Step**. Note that by default we are selecting a `t3.micro` EC2 instance, which is eligible for free tier.
 
 <img src="images/cloud9-configure-env.png" style="zoom: 67%;" />
 
@@ -149,7 +147,7 @@ aws s3 cp ~/environment/mythicalmysfits/part-1/web/index.html s3://REPLACE_ME_BU
 Now, **open up your favorite web browser** and enter one the URI below into the address bar. Remember to replace the bucket name accordingly. You should see your static website appearing.
 
 ```bash
-http://REPLACE_ME_BUCKET_NAME.s3-website-eu-west-1.amazonaws.com
+http://REPLACE_ME_BUCKET_NAME.s3-website.eu-north-1.amazonaws.com
 ```
 
 ![mysfits-welcome](images/mysfits-welcome.png)
@@ -260,7 +258,7 @@ aws cloudformation describe-stacks --stack-name MythicalMysfitsCoreStack > ~/env
 
 You should now create a Docker container image that contains all of the code and configuration required to run the Mythical Mysfits backend as a microservice API created with Flask. We will build the Docker container image within Cloud9 and then push it to the Amazon Elastic Container Registry, where it will be available to pull when we create our service using Fargate. Below, you can find a picture of the System Architecture that we are going to set up.
 
-![](/home/alessandro/Dropbox/Documenti/Universita/Lezioni/MBA/esercitazioni/images/architecture-diagram-part2b.png)
+![](images/architecture-diagram-part2b.png)
 
 #### Step 1: Create a Flask Service
 
@@ -277,17 +275,35 @@ cd ~/environment/mythicalmysfits/part-3/app
 You should now retrieve from the previous CloudFormation describe-stacks command, stored in `cloudformation-core-output.json`,  your account ID. Replace `REPLACE_ME_ACCOUNT_ID` with your account ID in the following command to build the docker image using the file `Dockerfile`, which contains Docker instructions. The command tags the Docker image, using the `-t` option, with a specific tag format so that the image can later be pushed to the Amazon Elastic Container Registry service.
 
 ```bash
-docker build . -t REPLACE_ME_AWS_ACCOUNT_ID.dkr.ecr.eu-west-1.amazonaws.com/mythicalmysfits/service:latest
+docker build . -t REPLACE_ME_ACCOUNT_ID.dkr.ecr.eu-north-1.amazonaws.com/mythicalmysfits/service:latest
 ```
 
-You will see docker download and install all of the necessary dependency packages that our application needs, and output the tag for the built image. **Copy the image tag for later reference**. Below an example tag shown as: `111111111111.dkr.ecr.eu-west-1.amazonaws.com/mythicalmysfits/service:latest`.
+You will see docker download and install all of the necessary dependency packages that our application needs, and output the tag for the built image. **Copy the image tag for later reference**. Below an example tag shown as: `111111111111.dkr.ecr.eu-north-1.amazonaws.com/mythicalmysfits/service:latest`.
 
 ```bash
 Successfully built 8bxxxxxxxxab
-Successfully tagged 111111111111.dkr.ecr.eu-west-1.amazonaws.com/mythicalmysfits/service:latest
+Successfully tagged 111111111111.dkr.ecr.eu-north-1.amazonaws.com/mythicalmysfits/service:latest
 ```
 
-We are now ready to create a container image repository in [Amazon Elastic Container Registry](https://aws.amazon.com/ecr/) (Amazon ECR) and push our image into it. In order to create the registry, run the following command, this **creates a new repository in the default AWS ECR registry** created for your account.
+Let's test our image locally within Cloud9 to make sure everything is operating as expected. **Copy the image tag** that resulted from the previous command and **run the following command** to deploy the container “locally” (which is actually within your Cloud9 IDE inside AWS!):
+
+```bash
+docker run -p 8080:8080 REPLACE_ME_WITH_DOCKER_IMAGE_TAG
+```
+
+As a result you will see Docker reporting that your container is up and running locally:
+
+```bash
+* Running on http://0.0.0.0:8080/ (Press CTRL+C to quit)
+```
+
+To test our service with a local request, we're going to **open up the built-in web browser within the Cloud9 IDE** that can be used to preview applications that are running on the IDE instance.
+
+To open the preview web browser, **select Preview > Preview Running Application in the Cloud9 menu bar:**
+
+![](images/preview-menu.png)
+
+After testing the application, we are now ready to create a container image repository in [Amazon Elastic Container Registry](https://aws.amazon.com/ecr/) (Amazon ECR) and push our image into it. In order to create the registry, run the following command, this **creates a new repository in the default AWS ECR registry** created for your account.
 
 ```bash
 aws ecr create-repository --repository-name mythicalmysfits/service
@@ -337,7 +353,7 @@ Now that we have a cluster created and a log group defined for where our contain
 
 A JSON file has been provided that will serve as the input to the CLI command. **Open `~/environment/mythicalmysfits/part-3/aws-cli/task-definition.json `in the IDE.**
 
-**Replace the indicated values** with the appropriate ones from your created resources. These values will be pulled from the CloudFormation response you copied earlier as well as the docker image tag that you pushed earlier to ECR, eg: `REPLACE_ME_ACCOUNT_ID.dkr.ecr.eu-west-1.amazonaws.com/mythicalmysfits/service:latest`
+**Replace the indicated values** with the appropriate ones from your created resources. These values will be pulled from the CloudFormation response you copied earlier as well as the docker image tag that you pushed earlier to ECR, eg: `REPLACE_ME_ACCOUNT_ID.dkr.ecr.eu-north-1.amazonaws.com/mythicalmysfits/service:latest`
 
 Once you have replaced the values in `task-defintion.json` and saved it, execute the following command to register a new task definition in ECS:
 
@@ -381,7 +397,7 @@ aws iam create-service-linked-role --aws-service-name ecs.amazonaws.com
 
 If the above returns an error about the role existing already, you can ignore it, as it would indicate the role has automatically been created in your account in the past.
 
-With the NLB created and configured, and the ECS service granted appropriate permissions, we're ready to create the actual ECS **service** where our containers will run and register themselves to the load balancer to receive traffic. We have included a JSON file for the CLI input that is located at: `~/environment/aws-modern-application-workshop/module-2/aws-cli/service-definition.json`. This file includes all of the configuration details for the service to be created, including indicating that this service should be launched with **AWS Fargate**—which means that you do not have to provision any servers within the targeted cluster. The containers that are scheduled as part of the task used in this service will run on top of a cluster that is fully managed by AWS.
+With the NLB created and configured, and the ECS service granted appropriate permissions, we're ready to create the actual ECS **service** where our containers will run and register themselves to the load balancer to receive traffic. We have included a JSON file for the CLI input that is located at: `~/environment/mythicalmisfits/part-3/aws-cli/service-definition.json`. This file includes all of the configuration details for the service to be created, including indicating that this service should be launched with **AWS Fargate**—which means that you do not have to provision any servers within the targeted cluster. The containers that are scheduled as part of the task used in this service will run on top of a cluster that is fully managed by AWS.
 
 **Open `~/environment/mythicalmysfits/part-3/aws-cli/service-definition.json` in the IDE and replace the indicated values of `REPLACE_ME_`. Save it, then run the following command to create the service:**
 
@@ -389,10 +405,10 @@ With the NLB created and configured, and the ECS service granted appropriate per
 aws ecs create-service --cli-input-json file://~/environment/mythicalmysfits/part-3/aws-cli/service-definition.json
 ```
 
-Copy the DNS name you saved when creating the NLB and send a request to it using the preview browser in Cloud9 (or by simply any web browser, since this time our service is available on the Internet). Try sending a request to the mysfits resource (the DNSName in `nlb-output.json`), something like:
+Use the DNS name you saved when creating the NLB and send a request to it using any web browser, since this time our service is available on the Internet: try sending a request to the mysfits resource (the DNSName in `nlb-output.json`), something like:
 
 ```bash
-http://mysfits-nlb-123456789-abc123456.elb.eu-west-1.amazonaws.com/mysfits
+http://mysfits-nlb-123456789-abc123456.elb.eu-north-1.amazonaws.com/mysfits
 ```
 
 A response showing a JSON file showing Mysfits data in Cloud9 means your Flask API is up and running on AWS Fargate.
@@ -405,7 +421,7 @@ Next, we need to integrate our website with your new API backend instead of usin
 
 **Open the file in Cloud9 and replace the highlighted area below between the quotes with the NLB URL:**
 
-![before-replace](/home/alessandro/Dropbox/Documenti/Universita/Lezioni/MBA/esercitazioni/images/before-replace.png)
+![before-replace](images/before-replace.png)
 
 To upload this file to your S3 hosted website, **use the bucket name again that was created** during Part 1, and **run the following command**:
 
@@ -421,7 +437,7 @@ In order to add some more critical aspects to the Mythical Mysfits website, like
 
 Then, to make sure that only registered users are authorized to like or adopt mysfits on the website, we will deploy a REST API with [Amazon API Gateway](https://aws.amazon.com/api-gateway/) to sit in front of our NLB. Amazon API Gateway is also a managed service, and provides commonly required REST API capabilities out of the box like SSL termination, request authorization, throttling, API stages and versioning, and much more.
 
-![](/home/alessandro/Dropbox/Documenti/Universita/Lezioni/MBA/esercitazioni/images/architecture-diagram-p4.png)
+![](images/architecture-diagram-p4.png)
 
 ### Step 1: Add A User Pool For Website Users
 
@@ -431,7 +447,7 @@ To create the Cognito User Pool where all of the Mythical Mysfits visitors will 
 aws cognito-idp create-user-pool --pool-name MysfitsUserPool --auto-verified-attributes email
 ```
 
-**Copy the response** from the above command, which includes the unique ID for your user pool that you will need to use in later steps. Eg: Id: `eu-west-1_ab12345YZ`)
+**Copy the response** from the above command, which includes the unique ID for your user pool that you will need to use in later steps. Eg: Id: `eu-north-1_ab12345YZ`)
 
 Next, in order to integrate our frontend website with Cognito, we must create a new **User Pool Client** for this user pool. This generates a unique client identifier that will allow our website to be authorized to call the unauthenticated APIs in cognito where website users can sign-in and register against the Mythical Mysfits user pool. To create a new client using the AWS CLI for the above user pool, **run the following command** (replacing the --user-pool-id value with the one you copied above):
 
@@ -527,7 +543,7 @@ This code is interacting with the AWS Cognito JavaScript SDK to help manage regi
 
 In this file, **replace the strings REPLACE_ME** inside the single quotes with the OutputValues you copied from above and save the file:
 
-![before-replace2](/home/alessandro/Dropbox/Documenti/Universita/Lezioni/MBA/esercitazioni/images/before-replace2.png)
+![before-replace2](images/before-replace2.png)
 
 Also, for the user registration process, you have an additional two HTML files to insert these values into. They are `register.html` and `confirm.html`. Insert the copied values into the **REPLACE_ME** strings in these files as well.
 

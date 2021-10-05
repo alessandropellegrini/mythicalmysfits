@@ -2,6 +2,8 @@ from flask import Flask, jsonify, json, Response, request
 from flask_cors import CORS
 import mysfitsTableClient
 
+# A very basic API created using Flask that has two possible routes for requests.
+
 app = Flask(__name__)
 CORS(app)
 
@@ -11,9 +13,10 @@ CORS(app)
 def healthCheckResponse():
     return jsonify({"message" : "Nothing here, used for health check. Try /mysfits instead."})
 
-# Retrive mysfits from DynamoDB based on provided querystring params, or all
-# mysfits if no querystring is present.
-@app.route("/mysfits", methods=['GET'])
+# Returns the data for all of the Mysfits to be displayed on
+# the website.  If no filter query string is provided, all mysfits are retrived
+# and returned. If a querystring filter is provided, only those mysfits are queried.
+@app.route("/mysfits")
 def getMysfits():
 
     filterCategory = request.args.get('filter')
@@ -23,40 +26,11 @@ def getMysfits():
             'filter': filterCategory,
             'value': filterValue
         }
+        # a filter query string was found, query only for those mysfits.
         serviceResponse = mysfitsTableClient.queryMysfits(queryParam)
     else:
+        # no filter was found, retrieve all mysfits.
         serviceResponse = mysfitsTableClient.getAllMysfits()
-
-    flaskResponse = Response(serviceResponse)
-    flaskResponse.headers["Content-Type"] = "application/json"
-
-    return flaskResponse
-
-# retrieve the full details for a specific mysfit with their provided path
-# parameter as their ID.
-@app.route("/mysfits/<mysfitId>", methods=['GET'])
-def getMysfit(mysfitId):
-    serviceResponse = mysfitsTableClient.getMysfit(mysfitId)
-
-    flaskResponse = Response(serviceResponse)
-    flaskResponse.headers["Content-Type"] = "application/json"
-
-    return flaskResponse
-
-# increment the number of likes for the provided mysfit.
-@app.route("/mysfits/<mysfitId>/like", methods=['POST'])
-def likeMysfit(mysfitId):
-    serviceResponse = mysfitsTableClient.likeMysfit(mysfitId)
-
-    flaskResponse = Response(serviceResponse)
-    flaskResponse.headers["Content-Type"] = "application/json"
-
-    return flaskResponse
-
-# indicate that the provided mysfit should be marked as adopted.
-@app.route("/mysfits/<mysfitId>/adopt", methods=['POST'])
-def adoptMysfit(mysfitId):
-    serviceResponse = mysfitsTableClient.adoptMysfit(mysfitId)
 
     flaskResponse = Response(serviceResponse)
     flaskResponse.headers["Content-Type"] = "application/json"
